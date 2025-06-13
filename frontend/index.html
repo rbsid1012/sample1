@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Profile</title>
+    <link rel="stylesheet" href="/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        /* Your existing inline styles, if any, will remain here for now */
+        /* They will be largely overridden by style.css, but kept for consistency */
+        #profile-image { display: none; width: 150px; height: 150px; object-fit: cover; border-radius: 10px; margin: 20px auto; }
+        main { max-width: 600px; margin: auto; text-align: center; }
+        .profile-detail { display: flex; justify-content: space-between; padding: 8px 0; }
+        .label { font-weight: bold; }
+        .token-form { margin-top: 20px; }
+        .message { margin-top: 15px; padding: 10px; border-radius: 5px; }
+        .message.success { background-color: #d4edda; color: #155724; }
+        .message.error { background-color: #f8d7da; color: #721c24; }
+    </style>
+
+    <script src="/main.js" defer></script>
+</head>
+<body>
+    <div class="page-wrapper">
+        <div class="profile-card">
+            <div class="profile-header-top">
+                <div class="profile-image-container">
+                    <img id="profile-image" src="" alt="Profile Picture" class="profile-pic">
+                </div>
+            </div>
+
+            <div class="profile-details-content">
+                <h1 id="name" class="profile-name">Loading Profile...</h1>
+                <p class="profile-role">Role: <span id="role">Unknown</span></p>
+                <p class="profile-description">Bio: <span id="bio">Unknown</span></p>
+
+                <div class="contact-details">
+                    <p class="contact-item"><i class="fas fa-phone"></i> Phone: <span id="phone-display">Hidden</span></p>
+                    <p class="contact-item"><i class="fas fa-envelope"></i> Email: <span id="email-display">Hidden</span></p>
+                    <p class="contact-item"><i class="fas fa-id-card"></i> Roll Number: <span id="roll_number-display">Hidden</span></p>
+                    <p class="contact-item"><i class="fas fa-coins"></i> Token Amount: <span id="token_amount">0.0</span></p>
+                </div>
+
+                <div class="social-links">
+                    <a href="#" id="instagram-link" class="social-icon" target="_blank" rel="noopener noreferrer"><i class="fab fa-instagram"></i></a>
+                    <a href="#" id="whatsapp-link" class="social-icon" target="_blank" rel="noopener noreferrer"><i class="fab fa-whatsapp"></i></a>
+                    <a href="#" id="linkedin-link" class="social-icon" target="_blank" rel="noopener noreferrer"><i class="fab fa-linkedin-in"></i></a>
+                    </div>
+
+                <h2>Personal Details</h2>
+                <p>More Info: <span id="more-info">Loading...</span></p>
+                <div id="pitch-deck-preview" class="pitch-deck-section">
+                    <a href="#" id="pitch-deck-link" target="_blank" rel="noopener noreferrer" class="pitch-deck-button">
+                        <i class="fas fa-file-powerpoint"></i> Pitch Deck Preview
+                    </a>
+                </div>
+
+                <p>Skills: <span id="skills-display">Loading...</span></p>
+
+                <div id="protected-section">
+                    <h3>Protected Information</h3>
+
+                    <div class="profile-detail">
+                        <div class="label">Address:</div>
+                        <div class="value" id="address">Confidential</div>
+                    </div>
+
+                    <div class="profile-detail">
+                        <div class="label">Phone:</div>
+                        <div class="value" id="phone">Confidential</div>
+                    </div>
+
+                    <div class="token-form">
+                        <label for="token-amount-input">Update Token Amount:</label>
+                        <input type="number" id="token-amount-input" min="0" step="1">
+                        <button id="update-token" onclick="updateTokenAmount()">Update Token</button>
+                    </div>
+                </div>
+
+                <div id="message" class="message" style="display: none;"></div>
+                <div id="status-message" class="message" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
