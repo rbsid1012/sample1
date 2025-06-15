@@ -10,49 +10,63 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const envPath = path.resolve(__dirname, '..', '.env');
 
-// ✅ Load .env from root directory
+// ✅ Load .env
 dotenv.config({ path: envPath });
 
-// 📄 DEBUG: Print .env contents to verify it's being read
-try {
-  const rawEnv = fs.readFileSync(envPath, 'utf-8');
-  console.log("📄 Loaded .env file content:\n", rawEnv);
-} catch (err) {
-  console.error("❌ Could not read .env file:", err.message);
-}
-
 const ENCRYPTION_KEY = process.env.PROFILE_ENCRYPTION_KEY;
-
-console.log("🧪 Loaded ENCRYPTION_KEY =", ENCRYPTION_KEY?.slice(0, 8) || 'undefined');
 
 if (!ENCRYPTION_KEY) {
   throw new Error("❌ PROFILE_ENCRYPTION_KEY is not set in .env!");
 }
 
-const IV_LENGTH = 16;
+const key = Buffer.from(ENCRYPTION_KEY, 'hex'); // 32-byte key for AES-256
 
-export function encrypt(text) {
-  const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(
-    'aes-256-cbc',
-    Buffer.from(ENCRYPTION_KEY, 'hex'),
-    iv
-  );
-  let encrypted = cipher.update(text, 'utf8');
-  encrypted = Buffer.concat([encrypted, cipher.final()]);
-  return iv.toString('hex') + ':' + encrypted.toString('hex');
+// 🔁 Helper to encode to URL-safe base64
+function base64url(buffer) {
+  return buffer.toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
 }
 
-export function decrypt(text) {
-  const [ivHex, encryptedHex] = text.split(':');
-  const iv = Buffer.from(ivHex, 'hex');
-  const encryptedText = Buffer.from(encryptedHex, 'hex');
-  const decipher = crypto.createDecipheriv(
-    'aes-256-cbc',
-    Buffer.from(ENCRYPTION_KEY, 'hex'),
-    iv
-  );
-  let decrypted = decipher.update(encryptedText);
-  decrypted = Buffer.concat([decrypted, decipher.final()]);
+// 🔁 Helper to decode from URL-safe base64
+function fromBase64url(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4 !== 0) str += '=';
+  return Buffer.from(str, 'base64');
+}
+
+// ✅ AES-256-GCM Encryption (Compact)
+export function encrypt(text) {
+  const iv = crypto.randomBytes(12); // 12-byte IV for GCM
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+
+  const encrypted = Buffer.concat([
+    cipher.update(text, 'utf8'),
+    cipher.final()
+  ]);
+
+  const authTag = cipher.getAuthTag();
+
+  const payload = Buffer.concat([iv, authTag, encrypted]);
+  return base64url(payload); // ~56–64 chars
+}
+
+// ✅ AES-256-GCM Decryption
+export function decrypt(encoded) {
+  const data = fromBase64url(encoded);
+
+  const iv = data.slice(0, 12);
+  const tag = data.slice(12, 28);
+  const encrypted = data.slice(28);
+
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+
+  const decrypted = Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final()
+  ]);
+
   return decrypted.toString('utf8');
 }
