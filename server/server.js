@@ -1,4 +1,5 @@
 // server/server.js
+import "./key-loader.js"; // ✅ Run before anything else
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
