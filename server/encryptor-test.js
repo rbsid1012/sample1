@@ -5,7 +5,7 @@ dotenv.config(); // ✅ Must come before imports that use env vars
 import { encrypt } from './encryptor.js';
 
 // Replace this with the actual user ID from your DB
-const userId = 'a002bad6-a859-4fa6-9cd2-c831fcc090ee';
+const userId = '70099c1a-e0a5-49ae-855d-fbcf756b12ee';
 
 try {
   const encrypted = encrypt(userId);

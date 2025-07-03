@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Access Verification</title>
+  <link rel="stylesheet" href="/verification-style.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="background"></div>
+
+  <main class="card">
+    <!-- ✅ Dynamic access badge -->
+    <div id="access-badge" class="access-badge neutral">Verifying...</div>
+
+    <!-- ✅ Profile image -->
+    <img id="profile-photo" class="profile hidden" src="" alt="Profile photo" />
+
+    <!-- ✅ Name heading -->
+    <h2 id="display-name" class="user-name hidden">-</h2>
+
+    <!-- ✅ Access details -->
+    <section id="details" class="hidden fade">
+      <div class="detail"><span>📍 Zone:</span> <strong id="zone">-</strong></div>
+      <div class="detail"><span>🔐 Permission:</span> <strong id="permission">-</strong></div>
+      <div class="detail"><span>🕓 Time:</span> <strong id="time">-</strong></div>
+    </section>
+  </main>
+
+  <footer>Secure Access Terminal · SAFEREAL © 2025</footer>
+
+  <script src="/verification.js"></script>
+</body>
+</html>

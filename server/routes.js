@@ -4,13 +4,21 @@ import {
   getPublicProfileData,
   getPublicProfileDataById,
   getProtectedProfileData,
-  updateTokenAmount
+  updateTokenAmount,
+
+  getUserById,
 } from "./db.js";
+
 import { decrypt } from "./encryptor.js";
+import { decryptVerificationId } from "./esp/verifier/verifier-encryptor.js";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const router = express.Router();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
-// ✅ Middleware: log incoming requests
+// ✅ Middleware: log every request
 router.use((req, res, next) => {
   console.log(`▶️ API Request: ${req.method} ${req.originalUrl}`);
   next();
@@ -21,60 +29,80 @@ router.get("/ping", (req, res) => {
   res.send("✅ API is live");
 });
 
-// ✅ Public profile route using encrypted ID
+// ✅ /profile/:encryptedId → public profile (uses original encryptor.js)
 router.get("/profile/:encryptedId", async (req, res) => {
-  const { encryptedId } = req.params;
-
   try {
-    const userId = decrypt(encryptedId);
-    console.log("🔐 Decrypted userId:", userId);
-
+    const userId = decrypt(req.params.encryptedId);
     const publicData = await getPublicProfileDataById(userId);
     res.json({ publicData });
   } catch (err) {
-    console.error("❌ Error decrypting or fetching profile:", err.message);
+    console.error("❌ Profile decrypt error:", err.message);
     res.status(404).json({ error: "Invalid or expired profile link" });
   }
 });
 
-// ✅ Public profile route (by username — legacy support)
+// ✅ /:username → fallback legacy support
 router.get("/:username([a-zA-Z0-9_]+)", async (req, res) => {
-  const { username } = req.params;
-
   try {
-    const publicData = await getPublicProfileData(username);
+    const publicData = await getPublicProfileData(req.params.username);
     res.json({ publicData });
-  } catch (error) {
-    console.error("❌ Error in public profile (username):", error.message);
-    res.status(404).json({ error: error.message });
+  } catch (err) {
+    res.status(404).json({ error: err.message });
   }
 });
 
-// ✅ Protected profile route
+// ✅ /:username/protected → secure data with token
 router.get("/:username/protected", async (req, res) => {
-  const { username } = req.params;
-  const { token } = req.query;
-
   try {
-    const protectedData = await getProtectedProfileData(username, token);
+    const protectedData = await getProtectedProfileData(req.params.username, req.query.token);
     res.json({ protectedData });
-  } catch (error) {
-    console.error("❌ Error in protected profile:", error.message);
-    res.status(401).json({ error: error.message });
+  } catch (err) {
+    res.status(401).json({ error: err.message });
   }
 });
 
-// ✅ Update token amount (protected)
+// ✅ Update token balance in profile
 router.post("/:username/protected/update-token", async (req, res) => {
-  const { username } = req.params;
-  const { token, new_token_amount } = req.body;
-
   try {
-    const result = await updateTokenAmount(username, token, new_token_amount);
+    const { token, new_token_amount } = req.body;
+    const result = await updateTokenAmount(req.params.username, token, new_token_amount);
     res.json(result);
-  } catch (error) {
-    console.error("❌ Error updating token amount:", error.message);
-    res.status(400).json({ error: error.message });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+// ✅ Serve frontend: /verification-1/:encryptedId
+router.get("/verification-1/:encryptedId", (req, res) => {
+  const filePath = path.join(__dirname, "../frontend/verification.html");
+  res.sendFile(filePath);
+});
+
+// ✅ API route: /verify-user-by-id/:encryptedId (decrypts ID using verifier keys)
+router.get("/verify-user-by-id/:encryptedId", async (req, res) => {
+  try {
+    const encryptedId = req.params.encryptedId;
+    const userId = decryptVerificationId(encryptedId);
+    console.log("✅ Decrypted user_id:", userId);
+
+    const user = await getUserById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    console.log("👤 Fetched profile by ID:", user);
+
+    res.json({
+      user_id: user.id,
+      permission: user.permission,
+      zone: "General Access",
+      timestamp: new Date().toLocaleString(),
+      name: user.public_data?.name || "Anonymous",
+      image_url: user.image_url || null,
+    });
+  } catch (err) {
+    console.error("❌ Error loading verification profile:", err.message);
+    res.status(400).json({ error: "Invalid or expired verification ID" });
   }
 });
 

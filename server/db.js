@@ -1,29 +1,47 @@
-// server/db.js
 import { createClient } from '@supabase/supabase-js';
 import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
-// Load .env file (one level up)
+// Load environment variables
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
-// Debug logging for env values
-console.log("🌐 SUPABASE_URL =", process.env.SUPABASE_URL);
-console.log("🔑 Keys loaded:", "ANON?", !!process.env.SUPABASE_ANON_KEY, "SERVICE?", !!process.env.SUPABASE_SERVICE_KEY);
-
-// Choose service role key if available, else anon key
 const KEY = process.env.SUPABASE_SERVICE_KEY || process.env.SUPABASE_ANON_KEY;
 if (!process.env.SUPABASE_URL || !KEY) {
   throw new Error("Missing SUPABASE_URL or key in .env");
 }
 
-// Initialize Supabase client
 export const supabase = createClient(process.env.SUPABASE_URL, KEY);
 
 /**
- * Fetch public profile by username
+ * ✅ Fetch user verification data by Supabase user_id
+ */
+export async function getUserById(userId) {
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select("permission, public_data, image_url")
+    .eq("user_id", userId)
+    .single();
+
+  if (error || !profile) {
+    console.error("❌ Profile lookup failed for user_id:", userId, error?.message);
+    return null;
+  }
+
+  const name = profile.public_data?.name?.trim() || "Unnamed User";
+
+  return {
+    name,
+    image_url: profile.image_url || null,
+    permission: profile.permission,
+    timestamp: new Date().toLocaleString()
+  };
+}
+
+/**
+ * Public profile by username
  */
 export async function getPublicProfileData(username) {
   const { data: userData, error: userErr } = await supabase
@@ -31,10 +49,7 @@ export async function getPublicProfileData(username) {
     .select('id')
     .eq('username', username)
     .single();
-  if (userErr || !userData) {
-    console.error("❌ User lookup failed:", userErr?.message);
-    throw new Error('User not found');
-  }
+  if (userErr || !userData) throw new Error('User not found');
 
   const { data: profileData, error: profileErr } = await supabase
     .from('profiles')
@@ -48,10 +63,7 @@ export async function getPublicProfileData(username) {
     `)
     .eq('user_id', userData.id)
     .single();
-  if (profileErr || !profileData) {
-    console.error("❌ Profile lookup failed:", profileErr?.message);
-    throw new Error('Profile not found');
-  }
+  if (profileErr || !profileData) throw new Error('Profile not found');
 
   return {
     ...(profileData.public_data || {}),
@@ -63,9 +75,6 @@ export async function getPublicProfileData(username) {
   };
 }
 
-/**
- * Fetch public profile by user_id
- */
 export async function getPublicProfileDataById(userId) {
   const { data: p, error } = await supabase
     .from('profiles')
@@ -79,10 +88,7 @@ export async function getPublicProfileDataById(userId) {
     `)
     .eq('user_id', userId)
     .single();
-  if (error || !p) {
-    console.error("❌ Profile lookup by ID failed:", error?.message);
-    throw new Error('Profile not found');
-  }
+  if (error || !p) throw new Error('Profile not found');
 
   return {
     ...(p.public_data || {}),
@@ -94,19 +100,13 @@ export async function getPublicProfileDataById(userId) {
   };
 }
 
-/**
- * Fetch protected profile with token
- */
 export async function getProtectedProfileData(username, token) {
   const { data: u, error: ue } = await supabase
     .from('users')
     .select('id')
     .eq('username', username)
     .single();
-  if (ue || !u) {
-    console.error("❌ Protected user lookup failed:", ue?.message);
-    throw new Error('User not found');
-  }
+  if (ue || !u) throw new Error('User not found');
 
   const { data: p, error: pe } = await supabase
     .from('profiles')
@@ -122,15 +122,9 @@ export async function getProtectedProfileData(username, token) {
     `)
     .eq('user_id', u.id)
     .single();
-  if (pe || !p) {
-    console.error("❌ Protected profile lookup failed:", pe?.message);
-    throw new Error('Profile not found');
-  }
+  if (pe || !p) throw new Error('Profile not found');
 
-  if (!p.protected_url?.includes(`token=${token}`)) {
-    console.warn("⚠️ Invalid protected token:", token);
-    throw new Error('Invalid token');
-  }
+  if (!p.protected_url?.includes(`token=${token}`)) throw new Error('Invalid token');
 
   return {
     ...(p.public_data || {}),
@@ -143,9 +137,6 @@ export async function getProtectedProfileData(username, token) {
   };
 }
 
-/**
- * Update token amount in protected_data
- */
 export async function updateTokenAmount(username, token, newTokenAmount) {
   const { data: u, error: ue } = await supabase
     .from('users')
@@ -172,10 +163,7 @@ export async function updateTokenAmount(username, token, newTokenAmount) {
     .from('profiles')
     .update({ protected_data: updatedProtected })
     .eq('user_id', u.id);
-  if (ue2) {
-    console.error("❌ Token update failed:", ue2.message);
-    throw new Error('Failed to update token amount');
-  }
+  if (ue2) throw new Error('Failed to update token amount');
 
   return { message: 'Token amount updated successfully!' };
 }

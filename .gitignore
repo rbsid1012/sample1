@@ -1,8 +1,18 @@
-# Ignore node modules
+# Node
 node_modules/
-
-# Ignore environment variables
 .env
 
-# Ignore system files
-.DS_Store
+# RSA keys - private (do NOT commit)
+server/esp/private.pem
+server/esp/verifier/verify-private.pem
+
+# Temp/test files
+*.log
+*.test.js
+server/verifier/verifier-encryptor-test.js
+
+
+.env
+server/esp/private.pem
+server/esp/verifier/verify-private.pem
+
