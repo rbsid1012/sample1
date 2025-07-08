@@ -1,26 +1,19 @@
-// server/esp/verifier/verifier-encryptor.js
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { fileURLToPath } from "url";
 
-// ⛓️ Resolve __dirname in ESM
+// Resolve __dirname for ESM
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ Lazy-load key when function runs
-function loadKey(filename) {
-  const filePath = path.join(__dirname, filename);
-  return fs.readFileSync(filePath, "utf8");
-}
-
 /**
- * Encrypts a user ID using the verification public key
- * (used by ESP32 to send encrypted payload to /verification-1 route)
+ * Encrypts a user ID using verify-public.pem (local file)
  */
 export function encryptVerificationId(userId) {
   try {
-    const publicKey = loadKey("verify-public.pem");
+    const publicKeyPath = path.join(__dirname, 'verify-public.pem');
+    const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
 
     const encrypted = crypto.publicEncrypt(
       {
@@ -39,12 +32,11 @@ export function encryptVerificationId(userId) {
 }
 
 /**
- * Decrypts a base64-encrypted payload using the verification private key
- * (used by server to decrypt incoming ESP32 payload)
+ * Decrypts encrypted ID using VERIFY_PRIVATE_PEM_B64 from env
  */
 export function decryptVerificationId(encryptedId) {
   try {
-    const privateKey = loadKey("verify-private.pem");
+    const privateKey = Buffer.from(process.env.VERIFY_PRIVATE_PEM_B64, 'base64').toString('utf8');
 
     const decrypted = crypto.privateDecrypt(
       {

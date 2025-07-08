@@ -1,4 +1,3 @@
-// server/esp/crypto.js
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
@@ -8,16 +7,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ✅ Safe function to load key lazily
-function loadKey(filename) {
-  const filePath = path.join(__dirname, filename);
-  return fs.readFileSync(filePath, 'utf8');
-}
-
-// ✅ Decrypt incoming payload using private key
+/**
+ * Decrypt payload using PRIVATE_PEM_B64 (from env)
+ */
 export function decryptPayload(base64Encrypted) {
   try {
-    const privateKey = loadKey('private.pem');
+    const privateKey = Buffer.from(process.env.PRIVATE_PEM_B64, 'base64').toString('utf8');
     const buffer = Buffer.from(base64Encrypted, 'base64');
 
     const decrypted = crypto.privateDecrypt(
@@ -36,10 +31,13 @@ export function decryptPayload(base64Encrypted) {
   }
 }
 
-// ✅ Encrypt response using public key
+/**
+ * Encrypt response using public.pem from local file
+ */
 export function encryptResponse(text) {
   try {
-    const publicKey = loadKey('public.pem');
+    const publicKeyPath = path.join(__dirname, 'public.pem');
+    const publicKey = fs.readFileSync(publicKeyPath, 'utf8');
     const buffer = Buffer.from(text, 'utf8');
 
     const encrypted = crypto.publicEncrypt(
