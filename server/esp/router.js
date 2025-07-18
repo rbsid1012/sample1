@@ -19,7 +19,7 @@ router.post("/verify", async (req, res) => {
     const payload = JSON.parse(decrypted);
     console.log("🔓 Decrypted ESP payload:", payload);
 
-    const { user_id, mac, timestamp, lat, lng } = payload;
+    const { user_id, mac, nfc_id, timestamp, lat, lng } = payload;
 
     // Step 2: Validate timestamp (2 minute window)
     const now = Date.now();
@@ -39,6 +39,11 @@ router.post("/verify", async (req, res) => {
     if (dist > (radius_m / 1000)) {
       return res.json({ data: encryptResponse("ACCESS DENIED: Outside allowed geofence") });
     }
+    // Step 3.5: Validate NFC ID
+if (!credential.nfc_id || credential.nfc_id !== nfc_id) {
+  return res.json({ data: encryptResponse("ACCESS DENIED: Invalid NFC ID") });
+}
+
 
     // Step 4: Check user permission in database
     const user = await getUserById(user_id);

@@ -10,14 +10,13 @@ function getTokenFromUrl() {
   return params.get('token');
 }
 
-// ✅ Save as .vcf contact file
 function saveToPhone() {
   const name = document.getElementById("name")?.textContent || "Unnamed";
   const emailHref = document.getElementById("email-link")?.href || "";
   const phoneHref = document.getElementById("whatsapp-link")?.href || "";
 
   const email = emailHref.startsWith("mailto:") ? emailHref.replace("mailto:", "") : "";
-  const phone = phoneHref.includes("wa.me") ? phoneHref.split("wa.me/")[1] : "";
+  const phone = phoneHref.match(/wa\.me\/(\d+)/)?.[1] || "";
 
   const vcf = `
 BEGIN:VCARD
@@ -39,6 +38,7 @@ END:VCARD
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
+
 
 // ✅ Load and inject user profile
 async function loadProfile() {

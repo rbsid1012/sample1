@@ -1,109 +1,72 @@
-// server/routes.js
-import express from "express";
-import {
-  getPublicProfileData,
-  getPublicProfileDataById,
-  getProtectedProfileData,
-  updateTokenAmount,
+// server/encryptor.js
+import crypto from 'crypto';
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-  getUserById,
-} from "./db.js";
-
-import { decrypt } from "./encryptor.js";
-import { decryptVerificationId } from "./esp/verifier/verifier-encryptor.js";
-import path from "path";
-import { fileURLToPath } from "url";
-
-const router = express.Router();
+// ⛓️ Resolve directory and .env path
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const envPath = path.resolve(__dirname, '..', '.env');
 
-// ✅ Middleware: log every request
-router.use((req, res, next) => {
-  console.log(`▶️ API Request: ${req.method} ${req.originalUrl}`);
-  next();
-});
+// ✅ Load .env
+dotenv.config({ path: envPath });
 
-// ✅ Health check
-router.get("/ping", (req, res) => {
-  res.send("✅ API is live");
-});
+const ENCRYPTION_KEY = process.env.PROFILE_ENCRYPTION_KEY;
 
-// ✅ /profile/:encryptedId → public profile (uses original encryptor.js)
-router.get("/profile/:encryptedId", async (req, res) => {
-  try {
-    const userId = decrypt(req.params.encryptedId);
-    const publicData = await getPublicProfileDataById(userId);
-    res.json({ publicData });
-  } catch (err) {
-    console.error("❌ Profile decrypt error:", err.message);
-    res.status(404).json({ error: "Invalid or expired profile link" });
-  }
-});
+if (!ENCRYPTION_KEY) {
+  throw new Error("❌ PROFILE_ENCRYPTION_KEY is not set in .env!");
+}
 
-// ✅ /:username → fallback legacy support
-router.get("/:username([a-zA-Z0-9_]+)", async (req, res) => {
-  try {
-    const publicData = await getPublicProfileData(req.params.username);
-    res.json({ publicData });
-  } catch (err) {
-    res.status(404).json({ error: err.message });
-  }
-});
+const key = Buffer.from(ENCRYPTION_KEY, 'hex'); // 32-byte key for AES-256
 
-// ✅ /:username/protected → secure data with token
-router.get("/:username/protected", async (req, res) => {
-  try {
-    const protectedData = await getProtectedProfileData(req.params.username, req.query.token);
-    res.json({ protectedData });
-  } catch (err) {
-    res.status(401).json({ error: err.message });
-  }
-});
+// 🔁 Helper to encode to URL-safe base64
+function base64url(buffer) {
+  return buffer.toString('base64')
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/, '');
+}
 
-// ✅ Update token balance in profile
-router.post("/:username/protected/update-token", async (req, res) => {
-  try {
-    const { token, new_token_amount } = req.body;
-    const result = await updateTokenAmount(req.params.username, token, new_token_amount);
-    res.json(result);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
+// 🔁 Helper to decode from URL-safe base64
+function fromBase64url(str) {
+  str = str.replace(/-/g, '+').replace(/_/g, '/');
+  while (str.length % 4 !== 0) str += '=';
+  return Buffer.from(str, 'base64');
+}
 
-// ✅ Serve frontend: /verification-1/:encryptedId
-router.get("/verification-1/:encryptedId", (req, res) => {
-  const filePath = path.join(__dirname, "../frontend/verification.html");
-  res.sendFile(filePath);
-});
+// ✅ AES-256-GCM Encryption (Compact)
+export function encrypt(text) {
+  const iv = crypto.randomBytes(12); // 12-byte IV for GCM
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
 
-// ✅ API route: /verify-user-by-id/:encryptedId (decrypts ID using verifier keys)
-router.get("/verify-user-by-id/:encryptedId", async (req, res) => {
-  try {
-    const encryptedId = req.params.encryptedId;
-    const userId = decryptVerificationId(encryptedId);
-    console.log("✅ Decrypted user_id:", userId);
+  const encrypted = Buffer.concat([
+    cipher.update(text, 'utf8'),
+    cipher.final()
+  ]);
 
-    const user = await getUserById(userId);
-    if (!user) {
-      return res.status(404).json({ error: "User not found" });
-    }
+  const authTag = cipher.getAuthTag();
 
-    console.log("👤 Fetched profile by ID:", user);
+  const payload = Buffer.concat([iv, authTag, encrypted]);
+  return base64url(payload); // ~56–64 chars
+}
 
-    res.json({
-      user_id: user.id,
-      permission: user.permission,
-      zone: "General Access",
-      timestamp: new Date().toLocaleString(),
-      name: user.public_data?.name || "Anonymous",
-      image_url: user.image_url || null,
-    });
-  } catch (err) {
-    console.error("❌ Error loading verification profile:", err.message);
-    res.status(400).json({ error: "Invalid or expired verification ID" });
-  }
-});
+// ✅ AES-256-GCM Decryption
+export function decrypt(encoded) {
+  const data = fromBase64url(encoded);
 
-export default router;
+  const iv = data.slice(0, 12);
+  const tag = data.slice(12, 28);
+  const encrypted = data.slice(28);
+
+  const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+  decipher.setAuthTag(tag);
+
+  const decrypted = Buffer.concat([
+    decipher.update(encrypted),
+    decipher.final()
+  ]);
+
+  return decrypted.toString('utf8');
+}
