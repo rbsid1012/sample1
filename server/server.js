@@ -1,41 +1,39 @@
 // server/server.js
-import "./key-loader.js"; // ✅ Run before anything else
+import "./key-loader.js"; // Ensure keys load first
 import express from "express";
 import path from "path";
 import { fileURLToPath } from "url";
 
-import routes from "./routes.js";        // Existing profile-related routes
-import espRouter from "./esp/router.js"; // ✅ ESP verification route
+import routes from "./routes.js";        // ✅ Default export from routes.js
+import espRouter from "./esp/router.js"; // ✅ ESP verification routes
 
 const app = express();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// 📁 Log folder paths
+// Logging
 console.log("📂 Server root:", __dirname);
 console.log("🧾 Frontend folder:", path.join(__dirname, "../frontend"));
 
-// ✅ Parse JSON bodies
+// ✅ Middlewares
 app.use(express.json());
-
-// ✅ Serve static files from frontend folder
 app.use(express.static(path.join(__dirname, "../frontend")));
 
-// ✅ Mount API routes
-app.use("/api", routes);
-app.use("/api/esp", espRouter);
+// ✅ Mount routes
+app.use("/api", routes);         // General routes
+app.use("/api/esp", espRouter);  // ESP-specific routes
 
-// ✅ Explicit route for /verification-1/:encryptedId
+// ✅ Serve verification page
 app.get("/verification-1/:encryptedId", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/verification.html"));
 });
 
-// ✅ Root route
+// ✅ Root fallback
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
 
-// ✅ Wildcard fallback (must be LAST)
+// ✅ Catch-all fallback
 app.get("*", (req, res) => {
   res.sendFile(path.join(__dirname, "../frontend/index.html"));
 });
@@ -46,5 +44,4 @@ app.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
   console.log(`📡 API: /api/...`);
   console.log(`📟 ESP: /api/esp/verify`);
-  console.log(`🧭 Verification page: /verification-1/:encryptedId`);
 });
